@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color-scheme: light;
+  color: #000000e5;
+  background-color: #f3f2ef;
+
+  /* ── LinkedIn Palette ── */
+  --color-primary:   10, 102, 194;   /* LinkedIn blue */
+  --color-accent:    10, 102, 194;   /* same blue accent */
+  --color-success:   39, 174, 96;    /* green */
+  --color-warning:   230, 126, 34;   /* amber */
+  --color-danger:    192, 57, 43;    /* red */
+  --color-surface:   255, 255, 255;
+
+  --bg-page:      #f3f2ef;
+  --bg-surface:   #ffffff;
+  --bg-inset:     #f3f2ef;
+  --bg-hover:     #f5f5f5;
+  --border-def:   rgba(0,0,0,0.12);
+  --border-light: rgba(0,0,0,0.08);
+  --text-hi:      rgba(0,0,0,0.9);
+  --text-mid:     rgba(0,0,0,0.6);
+  --text-lo:      rgba(0,0,0,0.4);
+
+  --t0: 0.1s ease;
+  --t1: 0.15s ease;
+  --t2: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* LinkedIn-style clean shadows */
+  --s0: 0 0 0 1px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+  --s1: 0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06);
+  --s2: 0 8px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+  --s-inset: inset 0 1px 2px rgba(0,0,0,0.05);
+
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 50px;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Animations ── */
+@keyframes fadeInUp    { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes fadeIn      { from { opacity:0; } to { opacity:1; } }
+@keyframes slideIn     { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
+@keyframes slideUp     { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes scaleIn     { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:none; } }
+@keyframes cardEntrance{ from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes pageFadeIn  { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+@keyframes driftUp     { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes float       { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);} }
+@keyframes pulse       { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+@keyframes rotate      { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+@keyframes shimmer     { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+@keyframes progressGlow{ 0%{background-position:0% 50%;} 100%{background-position:200% 50%;} }
+@keyframes badgePulse  { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.8;transform:scale(1.05);} }
+@keyframes rippleExpand{ 0%{transform:translate(-50%,-50%) scale(0);opacity:0.3;} 100%{transform:translate(-50%,-50%) scale(4);opacity:0;} }
+
+/* ── Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+a { font-weight:500; color:rgb(var(--color-primary)); text-decoration:none; transition:color var(--t0); }
+a:hover { color:rgba(var(--color-primary), 0.8); text-decoration:underline; text-underline-offset:2px; }
+
+body {
+  margin:0; min-width:320px; min-height:100vh;
+  background:var(--bg-page);
+}
+
+h1 { font-size:1.75em; line-height:1.2; font-weight:700; letter-spacing:-0.02em; color:var(--text-hi); margin:0; }
+h2 { font-weight:600; letter-spacing:-0.01em; color:var(--text-hi); font-size:1.2em; margin:0; }
+h3 { font-weight:600; color:var(--text-hi); font-size:1em; margin:0; }
+
+button {
+  border-radius:var(--r-full);
+  border:1.5px solid transparent;
+  padding:0.45em 1.1em; font-size:0.875em; font-weight:600;
+  font-family:inherit;
+  color:var(--text-hi); cursor:pointer;
+  transition:all var(--t1); position:relative; overflow:hidden;
+  letter-spacing:0.01em;
+}
+button::before { display:none; }
+button::after { display:none; }
+button:hover { background-color:var(--bg-hover); }
+button:active { transform:scale(0.98); }
+button:focus-visible { outline:none; box-shadow:0 0 0 2px rgb(var(--color-primary)); }
+
+::selection { background:rgba(var(--color-primary),0.15); color:var(--text-hi); }
+
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.18); border-radius:99px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.28); }
+
+.content > * { animation:pageFadeIn 0.3s ease backwards; }
+
+.loadingSpinner {
+  width:36px; height:36px; border-radius:50%;
+  border:2.5px solid rgba(0,0,0,0.1);
+  border-top-color:rgb(var(--color-primary));
+  animation:rotate 0.75s linear infinite;
+}
+.loadingSpinner::after { display:none; }
+
+*:focus-visible { outline:2px solid rgba(var(--color-primary),0.5); outline-offset:2px; }
