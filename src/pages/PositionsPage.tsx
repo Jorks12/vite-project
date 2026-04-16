@@ -1,26 +1,61 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LearningMaterial, Position, PositionMatch, Skill, UserRole } from '../domain/types'
+import type { LearningMaterial, MentorRecommendation, Position, PositionMatch, Skill, UserProfile, UserRole } from '../domain/types'
+import type { SupabaseUser } from '../lib/supabaseUsers'
 
 type Props = {
     skills: Skill[]
     positions: Position[]
     materials: LearningMaterial[]
     role: UserRole
+    currentUserId: string
+    currentUserName: string
+    supabaseUsers: SupabaseUser[]
+    userProfiles: UserProfile[]
+    mentorRecommendations: MentorRecommendation[]
     onCalculateMatch: (positionId: string) => Promise<PositionMatch>
     onAddPosition: (draft: Omit<Position, 'id'>) => void
     onDeletePosition: (id: string) => void
+    onAddRecommendation: (draft: { positionId: string; studentId: string; mentorName: string; mentorId: string; message: string }) => void
+    onDeleteRecommendation: (id: string) => void
 }
 
-export default function PositionsPage({ skills, positions, materials, role, onCalculateMatch, onAddPosition, onDeletePosition }: Props) {
+export default function PositionsPage({
+    skills, positions, materials, role, currentUserId, currentUserName,
+    supabaseUsers, userProfiles, mentorRecommendations,
+    onCalculateMatch, onAddPosition, onDeletePosition,
+    onAddRecommendation, onDeleteRecommendation,
+}: Props) {
     const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null)
     const [matches, setMatches] = useState<{ position: Position; match: PositionMatch }[]>([])
     const [isAdding, setIsAdding] = useState(false)
     const [newName, setNewName] = useState('')
     const [newDesc, setNewDesc] = useState('')
+    const [newCompany, setNewCompany] = useState('')
+
+    // Recommendation form state
+    const [recStudentId, setRecStudentId] = useState('')
+    const [recMessage, setRecMessage] = useState('')
 
     const canManagePositions = role === 'admin' || role === 'mentor'
+    const isMentor = role === 'mentor'
 
     const skillMap = useMemo(() => new Map(skills.map(s => [s.id, s])), [skills])
+
+    // All users for dropdown — prefer Supabase users, fall back to local profiles
+    const dropdownUsers = useMemo(() => {
+        if (supabaseUsers.length > 0) {
+            return supabaseUsers.map(u => ({ id: u.id, label: `${u.display_name} (${u.email})` }))
+        }
+        return userProfiles.map(p => ({ id: p.id, label: p.name }))
+    }, [supabaseUsers, userProfiles])
+
+    // Map for resolving user names in recommendation cards
+    const userNameById = useMemo(() => {
+        const map = new Map<string, string>()
+        supabaseUsers.forEach(u => map.set(u.id, u.display_name))
+        userProfiles.forEach(p => { if (!map.has(p.id)) map.set(p.id, p.name) })
+        return map
+    }, [supabaseUsers, userProfiles])
 
     useEffect(() => {
         let cancelled = false
@@ -56,6 +91,31 @@ export default function PositionsPage({ skills, positions, materials, role, onCa
         return materials.filter(mat => mat.skillIds.some(sid => missingSkillIds.has(sid))).slice(0, 5)
     }, [selectedMatch, materials])
 
+    // Recommendations for the selected position
+    const positionRecs = useMemo(() => {
+        if (!selectedPositionId) return []
+        return mentorRecommendations.filter(r => r.positionId === selectedPositionId)
+    }, [selectedPositionId, mentorRecommendations])
+
+    // For student view: only recommendations addressed to this student
+    const myRecs = useMemo(() => {
+        if (role !== 'student') return positionRecs
+        return positionRecs.filter(r => r.studentId === currentUserId)
+    }, [role, positionRecs, currentUserId])
+
+    const handleAddRecommendation = () => {
+        if (!selectedPositionId || !recStudentId.trim() || !recMessage.trim()) return
+        onAddRecommendation({
+            positionId: selectedPositionId,
+            studentId: recStudentId,
+            mentorId: currentUserId,
+            mentorName: currentUserName,
+            message: recMessage.trim(),
+        })
+        setRecMessage('')
+        setRecStudentId('')
+    }
+
     return (
         <div className="page">
             <div className="pageHeader">
@@ -80,14 +140,18 @@ export default function PositionsPage({ skills, positions, materials, role, onCa
                             <label>Име на позицията</label>
                             <input className="input" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Напр. Senior Developer" />
                         </div>
+                        <div className="formField">
+                            <label>Компания</label>
+                            <input className="input" value={newCompany} onChange={e => setNewCompany(e.target.value)} placeholder="Напр. Google" />
+                        </div>
                         <div className="formField fullWidth">
                             <label>Описание</label>
                             <input className="input" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Описание..." />
                         </div>
                     </div>
                     <button className="button buttonPrimary" disabled={!newName.trim()} onClick={() => {
-                        onAddPosition({ name: newName.trim(), description: newDesc.trim(), requirements: [] })
-                        setNewName(''); setNewDesc(''); setIsAdding(false);
+                        onAddPosition({ name: newName.trim(), description: newDesc.trim(), company: newCompany.trim() || undefined, requirements: [] })
+                        setNewName(''); setNewDesc(''); setNewCompany(''); setIsAdding(false);
                     }}>
                         Запази позиция
                     </button>
@@ -105,7 +169,12 @@ export default function PositionsPage({ skills, positions, materials, role, onCa
                             onClick={() => setSelectedPositionId(position.id)}
                         >
                             <div className="positionHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h4>{position.name}</h4>
+                                <div>
+                                    <h4>{position.name}</h4>
+                                    {position.company && (
+                                        <span className="companyBadge">🏢 {position.company}</span>
+                                    )}
+                                </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div className={`coverageBadge ${getCoverageColor(match.coveragePercent)}`}>
                                         {match.coveragePercent}%
@@ -150,6 +219,9 @@ export default function PositionsPage({ skills, positions, materials, role, onCa
                     {selectedMatch ? (
                         <>
                             <h3>{selectedMatch.position.name}</h3>
+                            {selectedMatch.position.company && (
+                                <p className="companyBadgeLarge">🏢 {selectedMatch.position.company}</p>
+                            )}
                             <p className="muted">{selectedMatch.position.description}</p>
 
                             <div className="matchOverview">
@@ -219,6 +291,81 @@ export default function PositionsPage({ skills, positions, materials, role, onCa
                                                 </div>
                                             ))
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Mentor recommendation form */}
+                            {isMentor && (
+                                <div className="mentorRecSection">
+                                    <h4>📝 Препоръка за студент</h4>
+                                    <div className="mentorRecForm">
+                                        <div className="formField">
+                                            <label>Избери студент</label>
+                                            <select
+                                                className="input"
+                                                value={recStudentId}
+                                                onChange={e => setRecStudentId(e.target.value)}
+                                            >
+                                                <option value="">-- Избери потребител --</option>
+                                                {dropdownUsers.map(u => (
+                                                    <option key={u.id} value={u.id}>
+                                                        {u.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="formField">
+                                            <label>Съобщение / препоръка</label>
+                                            <textarea
+                                                className="input mentorRecTextarea"
+                                                value={recMessage}
+                                                onChange={e => setRecMessage(e.target.value)}
+                                                placeholder="Напр. Препоръчвам да се фокусираш върху React hooks преди да кандидатстваш..."
+                                                rows={3}
+                                            />
+                                        </div>
+                                        <button
+                                            className="button buttonPrimary"
+                                            disabled={!recStudentId || !recMessage.trim()}
+                                            onClick={handleAddRecommendation}
+                                        >
+                                            Изпрати препоръка
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Existing recommendations */}
+                            {(isMentor ? positionRecs : myRecs).length > 0 && (
+                                <div className="mentorRecSection">
+                                    <h4>💬 {isMentor ? 'Изпратени препоръки' : 'Препоръки от менторите'}</h4>
+                                    <div className="recCardList">
+                                        {(isMentor ? positionRecs : myRecs).map(rec => {
+                                            const studentName = userNameById.get(rec.studentId) || rec.studentId
+                                            return (
+                                                <div key={rec.id} className="recCard">
+                                                    <div className="recCardHeader">
+                                                        <div>
+                                                            <span className="recMentor">🎓 {rec.mentorName}</span>
+                                                            <span className="recArrow"> → </span>
+                                                            <span className="recStudent">🎒 {studentName}</span>
+                                                        </div>
+                                                        <span className="recDate">{new Date(rec.createdAt).toLocaleDateString('bg-BG')}</span>
+                                                    </div>
+                                                    <p className="recMessage">{rec.message}</p>
+                                                    {isMentor && rec.mentorId === currentUserId && (
+                                                        <button
+                                                            className="button buttonSmall buttonGhost"
+                                                            style={{ color: '#dc2626', marginTop: 4 }}
+                                                            onClick={() => onDeleteRecommendation(rec.id)}
+                                                        >
+                                                            Изтрий
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             )}

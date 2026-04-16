@@ -58,13 +58,17 @@ export interface SkillMatrixDB extends DBSchema {
         key: string
         value: FeedbackEntry
     }
+    mentorRecommendations: {
+        key: string
+        value: import('../domain/types').MentorRecommendation
+    }
 }
 
 let dbPromise: Promise<IDBPDatabase<SkillMatrixDB>> | null = null
 
 export function getDB(): Promise<IDBPDatabase<SkillMatrixDB>> {
     if (!dbPromise) {
-        dbPromise = openDB<SkillMatrixDB>('SkillMatrixDB', 2, {
+        dbPromise = openDB<SkillMatrixDB>('SkillMatrixDB', 3, {
             upgrade(db) {
                 // Categories
                 if (!db.objectStoreNames.contains('categories')) {
@@ -110,6 +114,10 @@ export function getDB(): Promise<IDBPDatabase<SkillMatrixDB>> {
                 // Feedback
                 if (!db.objectStoreNames.contains('feedback')) {
                     db.createObjectStore('feedback', { keyPath: 'id' })
+                }
+                // Mentor Recommendations
+                if (!db.objectStoreNames.contains('mentorRecommendations')) {
+                    db.createObjectStore('mentorRecommendations', { keyPath: 'id' })
                 }
             },
         })

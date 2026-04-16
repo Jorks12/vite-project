@@ -1,5 +1,6 @@
 import type {
   LearningMaterial,
+  MentorRecommendation,
   MaterialStatus,
   Position,
   PositionMatch,
@@ -16,7 +17,7 @@ import type {
 import { getDB } from './db'
 import { seedCategories, seedMaterials, seedSkills } from './seed'
 
-type StoreNames = 'categories' | 'skills' | 'materials' | 'userSkillLevels' | 'materialStatuses' | 'endorsements' | 'userProfiles' | 'evidences' | 'positions' | 'progressEvents' | 'feedback'
+type StoreNames = 'categories' | 'skills' | 'materials' | 'userSkillLevels' | 'materialStatuses' | 'endorsements' | 'userProfiles' | 'evidences' | 'positions' | 'progressEvents' | 'feedback' | 'mentorRecommendations'
 
 function makeId(prefix: string) {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -31,6 +32,7 @@ const seedPositions: Position[] = [
     id: 'pos_junior_fe',
     name: 'Junior Frontend Developer',
     description: 'Начална позиция за frontend разработка',
+    company: 'Google',
     requirements: [
       { skillId: 'skill_html_css', minLevel: 3, priority: 'required' },
       { skillId: 'skill_js', minLevel: 3, priority: 'required' },
@@ -43,6 +45,7 @@ const seedPositions: Position[] = [
     id: 'pos_qa_intern',
     name: 'QA Intern',
     description: 'Позиция за тестване на софтуер',
+    company: 'SAP',
     requirements: [
       { skillId: 'skill_html_css', minLevel: 1, priority: 'optional' },
       { skillId: 'skill_js', minLevel: 1, priority: 'optional' },
@@ -55,6 +58,7 @@ const seedPositions: Position[] = [
     id: 'pos_backend_trainee',
     name: 'Backend Trainee',
     description: 'Стажант backend разработчик',
+    company: 'Bosch',
     requirements: [
       { skillId: 'skill_node', minLevel: 2, priority: 'required' },
       { skillId: 'skill_rest', minLevel: 2, priority: 'required' },
@@ -67,6 +71,7 @@ const seedPositions: Position[] = [
     id: 'pos_devops_eng',
     name: 'DevOps Engineer',
     description: 'Инженер по автоматизация и инфраструктура',
+    company: 'Dreamix',
     requirements: [
       { skillId: 'skill_docker', minLevel: 3, priority: 'required' },
       { skillId: 'skill_kubernetes', minLevel: 2, priority: 'optional' },
@@ -79,6 +84,7 @@ const seedPositions: Position[] = [
     id: 'pos_fullstack',
     name: 'Full-Stack Developer',
     description: 'Разработчик на цялостни уеб приложения (Frontend + Backend)',
+    company: 'Telerik',
     requirements: [
       { skillId: 'skill_html_css', minLevel: 3, priority: 'required' },
       { skillId: 'skill_react', minLevel: 3, priority: 'required' },
@@ -91,6 +97,7 @@ const seedPositions: Position[] = [
     id: 'pos_mobile_dev',
     name: 'Mobile App Developer',
     description: 'Разработчик на мобилни приложения с React Native',
+    company: 'Spotify',
     requirements: [
       { skillId: 'skill_react_native', minLevel: 3, priority: 'required' },
       { skillId: 'skill_js', minLevel: 3, priority: 'required' },
@@ -102,6 +109,7 @@ const seedPositions: Position[] = [
     id: 'pos_python_backend',
     name: 'Python Backend Developer',
     description: 'Backend разработчик с основен фокус върху Python и бази данни',
+    company: 'VMware',
     requirements: [
       { skillId: 'skill_python', minLevel: 3, priority: 'required' },
       { skillId: 'skill_sql', minLevel: 3, priority: 'required' },
@@ -114,6 +122,7 @@ const seedPositions: Position[] = [
     id: 'pos_frontend_specialist',
     name: 'Frontend Specialist',
     description: 'Експерт по уеб интерфейси и напреднали CSS техники',
+    company: 'Uber',
     requirements: [
       { skillId: 'skill_html_css', minLevel: 4, priority: 'required' },
       { skillId: 'skill_css_advanced', minLevel: 3, priority: 'required' },
@@ -310,7 +319,22 @@ export async function ensureSeeded() {
   if (matCount === 0) await putMany('materials', seedMaterials)
 
   const posCount = await db.count('positions')
-  if (posCount === 0) await putMany('positions', seedPositions)
+  if (posCount === 0) {
+    await putMany('positions', seedPositions)
+  } else {
+    // Migrate: patch existing positions with company names if missing
+    const companyMap = new Map(seedPositions.map(p => [p.id, p.company]))
+    const tx = db.transaction('positions', 'readwrite')
+    let cursor = await tx.store.openCursor()
+    while (cursor) {
+      const pos = cursor.value as Position
+      if (!pos.company && companyMap.has(pos.id)) {
+        await cursor.update({ ...pos, company: companyMap.get(pos.id) })
+      }
+      cursor = await cursor.continue()
+    }
+    await tx.done
+  }
 
   const profileCount = await db.count('userProfiles')
   if (profileCount === 0) await putMany('userProfiles', seedUserProfiles)
@@ -728,6 +752,34 @@ export async function replyToFeedback(id: string, reply: string): Promise<import
   return updated
 }
 
+// ── Mentor Recommendations ───────────────────────────────────
+
+export async function getMentorRecommendations(): Promise<MentorRecommendation[]> {
+  const db = await getDB()
+  return db.getAll('mentorRecommendations')
+}
+
+export type MentorRecommendationDraft = Omit<MentorRecommendation, 'id' | 'createdAt'>
+
+export async function addMentorRecommendation(draft: MentorRecommendationDraft): Promise<MentorRecommendation> {
+  const db = await getDB()
+  const rec: MentorRecommendation = {
+    ...draft,
+    id: makeId('mrec'),
+    createdAt: new Date().toISOString(),
+  }
+  await db.put('mentorRecommendations', rec)
+  return rec
+}
+
+export async function deleteMentorRecommendation(id: string): Promise<boolean> {
+  const db = await getDB()
+  const existing = await db.get('mentorRecommendations', id)
+  if (!existing) return false
+  await db.delete('mentorRecommendations', id)
+  return true
+}
+
 // ── Reset ────────────────────────────────────────────────────
 
 export async function resetAllData() {
@@ -745,6 +797,7 @@ export async function resetAllData() {
   await db.clear('positions')
   await db.clear('progressEvents')
   await db.clear('feedback')
+  await db.clear('mentorRecommendations')
 
   // Re-seed
   await putMany('categories', seedCategories)

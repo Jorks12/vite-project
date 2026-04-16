@@ -1,6 +1,6 @@
 import './App.css'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { LearningMaterial, Position, ProgressEvent, Skill, SkillCategory, SkillEndorsement, SkillEvidence, UserMaterialStatus, UserProfile, UserSkillLevel, UserRole } from './domain/types'
+import type { LearningMaterial, MentorRecommendation, Position, ProgressEvent, Skill, SkillCategory, SkillEndorsement, SkillEvidence, UserMaterialStatus, UserProfile, UserSkillLevel, UserRole } from './domain/types'
 import ContactPage from './pages/ContactPage'
 import EndorsementsPage from './pages/EndorsementsPage'
 import EvidencePage from './pages/EvidencePage'
@@ -18,15 +18,18 @@ import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import { useAuth } from './context/AuthContext'
 import { logActivity } from './lib/activityLogger'
+import { getSupabaseUsers, type SupabaseUser } from './lib/supabaseUsers'
 import {
   addEvidence,
   addMaterial,
+  addMentorRecommendation,
   addPosition,
   addSkill,
   addUserProfile,
   calculatePositionMatch,
   deleteEvidence,
   deleteMaterial,
+  deleteMentorRecommendation,
   deletePosition,
   deleteSkill,
   deleteUserProfile,
@@ -36,6 +39,7 @@ import {
   getEvidences,
   getMaterials,
   getMaterialStatuses,
+  getMentorRecommendations,
   getPositions,
   getProgressEvents,
   getSkills,
@@ -106,10 +110,12 @@ function App() {
   const [evidences, setEvidences] = useState<SkillEvidence[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [progressEvents, setProgressEvents] = useState<ProgressEvent[]>([])
+  const [mentorRecs, setMentorRecs] = useState<MentorRecommendation[]>([])
+  const [supabaseUsers, setSupabaseUsers] = useState<SupabaseUser[]>([])
   const [loading, setLoading] = useState(true)
 
   const reloadAll = useCallback(async () => {
-    const [cat, sk, mat, ul, ms, end, up, ev, pos, pe] = await Promise.all([
+    const [cat, sk, mat, ul, ms, end, up, ev, pos, pe, mr] = await Promise.all([
       getCategories(),
       getSkills(),
       getMaterials(),
@@ -120,6 +126,7 @@ function App() {
       getEvidences(),
       getPositions(),
       getProgressEvents(),
+      getMentorRecommendations(),
     ])
     setCategories(cat)
     setSkills(sk)
@@ -131,12 +138,16 @@ function App() {
     setEvidences(ev)
     setPositions(pos)
     setProgressEvents(pe)
+    setMentorRecs(mr)
   }, [])
 
   useEffect(() => {
     async function init() {
       await ensureSeeded()
       await reloadAll()
+      // Load real Supabase users for recommendation dropdown
+      const sbUsers = await getSupabaseUsers()
+      setSupabaseUsers(sbUsers)
       setLoading(false)
       // Log page load if user is authenticated
       if (user) {
@@ -408,6 +419,11 @@ function App() {
             positions={positions}
             materials={materials}
             role={role}
+            currentUserId={user?.id || ''}
+            currentUserName={user?.user_metadata?.display_name || user?.email?.split('@')[0] || ''}
+            supabaseUsers={supabaseUsers}
+            userProfiles={userProfiles}
+            mentorRecommendations={mentorRecs}
             onCalculateMatch={calculatePositionMatchCb}
             onAddPosition={async (draft) => {
               await addPosition(draft)
@@ -416,6 +432,14 @@ function App() {
             onDeletePosition={async (id) => {
               await deletePosition(id)
               setPositions(await getPositions())
+            }}
+            onAddRecommendation={async (draft) => {
+              await addMentorRecommendation(draft)
+              setMentorRecs(await getMentorRecommendations())
+            }}
+            onDeleteRecommendation={async (id) => {
+              await deleteMentorRecommendation(id)
+              setMentorRecs(await getMentorRecommendations())
             }}
           />
         ) : null}

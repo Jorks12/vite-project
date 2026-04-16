@@ -98,6 +98,7 @@ export type Position = {
   id: string
   name: string
   description?: string
+  company?: string
   requirements: PositionRequirement[]
 }
 
@@ -125,5 +126,16 @@ export type ProgressEvent = {
   description: string
   oldValue?: number
   newValue?: number
+  createdAt: string
+}
+
+// Mentor recommendations for students per position
+export type MentorRecommendation = {
+  id: string
+  positionId: string
+  studentId: string
+  mentorId: string
+  mentorName: string
+  message: string
   createdAt: string
 }
